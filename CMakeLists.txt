@@ -6,14 +6,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 #
-# Download LumeShaderCompiler.exe
+# Download LumeShaderCompiler.exe (Windows only)
 #
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/LumeShaderCompiler.exe")
-  file(DOWNLOAD
-    "https://github.com/jsnchng/LumeShaderCompiler/releases/download/v1.0.0-alpha/LumeShaderCompiler.exe"
-    "${CMAKE_BINARY_DIR}/LumeShaderCompiler.exe"
-    EXPECTED_HASH SHA256=40c5382909b8e8033fd8eaa326963f84448865190f7000c4e8b91e6fd30be587
-    SHOW_PROGRESS)
+if(WIN32)
+  if(NOT EXISTS "${CMAKE_BINARY_DIR}/LumeShaderCompiler.exe")
+    file(DOWNLOAD
+      "https://github.com/jsnchng/LumeShaderCompiler/releases/download/v1.0.0-alpha/LumeShaderCompiler.exe"
+      "${CMAKE_BINARY_DIR}/LumeShaderCompiler.exe"
+      EXPECTED_HASH SHA256=40c5382909b8e8033fd8eaa326963f84448865190f7000c4e8b91e6fd30be587
+      SHOW_PROGRESS)
+  endif()
 endif()
 
 #
@@ -73,25 +75,35 @@ target_compile_definitions(AGP3D PUBLIC CORE_STATIC_PLUGIN_HEADER="${ENGINE_DIR}
 target_compile_definitions(AGP3D PUBLIC CORE3D_DEV_ENABLED=0)
 target_compile_definitions(AGP3D PRIVATE CORE3D_EMBEDDED_ASSETS_ENABLED=0)
 target_compile_definitions(AGP3D PRIVATE CORE3D_VALIDATION_ENABLED=1)
-target_compile_definitions(AGP3D PRIVATE "CORE3D_PUBLIC=__declspec(dllexport)")
-target_compile_definitions(AGP3D INTERFACE "CORE3D_PUBLIC=")
-target_compile_options(AGP3D PRIVATE /GR-)
-set(shader_compiler_executable "${CMAKE_BINARY_DIR}/LumeShaderCompiler.exe")
-set(argument_list)
-list(APPEND argument_list "--optimize")
-list(APPEND argument_list "--source")
-list(APPEND argument_list "${CMAKE_CURRENT_SOURCE_DIR}/assets/3d/shaders")
-list(APPEND argument_list "--include")
-list(APPEND argument_list "${RENDER_DIR}/api")
-list(APPEND argument_list "--include")
-list(APPEND argument_list "${CMAKE_CURRENT_SOURCE_DIR}/api")
-list(APPEND argument_list "--vulkan")
-list(APPEND argument_list "1.1")
-list(APPEND argument_list "--check-if-changed")
-add_custom_target(3DCompileShaders ALL
-  COMMAND ${shader_compiler_executable} ${argument_list}
-  COMMAND_EXPAND_LISTS)
-add_dependencies(AGP3D 3DCompileShaders)
+if(WIN32)
+    target_compile_definitions(AGP3D PRIVATE "CORE3D_PUBLIC=__declspec(dllexport)")
+    target_compile_definitions(AGP3D INTERFACE "CORE3D_PUBLIC=")
+    target_compile_options(AGP3D PRIVATE /GR-)
+else()
+    target_compile_definitions(AGP3D PRIVATE "CORE3D_PUBLIC=__attribute__((visibility(\"default\")))")
+    target_compile_definitions(AGP3D INTERFACE "CORE3D_PUBLIC=")
+    target_compile_options(AGP3D PRIVATE -fvisibility=hidden)
+endif()
+
+# Shader compilation (Windows only for now)
+if(WIN32)
+    set(shader_compiler_executable "${CMAKE_BINARY_DIR}/LumeShaderCompiler.exe")
+    set(argument_list)
+    list(APPEND argument_list "--optimize")
+    list(APPEND argument_list "--source")
+    list(APPEND argument_list "${CMAKE_CURRENT_SOURCE_DIR}/assets/3d/shaders")
+    list(APPEND argument_list "--include")
+    list(APPEND argument_list "${RENDER_DIR}/api")
+    list(APPEND argument_list "--include")
+    list(APPEND argument_list "${CMAKE_CURRENT_SOURCE_DIR}/api")
+    list(APPEND argument_list "--vulkan")
+    list(APPEND argument_list "1.1")
+    list(APPEND argument_list "--check-if-changed")
+    add_custom_target(3DCompileShaders ALL
+        COMMAND ${shader_compiler_executable} ${argument_list}
+        COMMAND_EXPAND_LISTS)
+    add_dependencies(AGP3D 3DCompileShaders)
+endif()
 
 #
 # Target: PluginAGP3D
@@ -108,4 +120,8 @@ target_link_libraries(PluginAGP3D PRIVATE
   AGP3D::AGP3D
   AGP3D::AGP3DAPI)
 target_compile_definitions(PluginAGP3D PRIVATE CORE_PLUGIN=1)
-target_compile_options(PluginAGP3D PRIVATE /GR-)
+if(WIN32)
+    target_compile_options(PluginAGP3D PRIVATE /GR-)
+else()
+    target_compile_options(PluginAGP3D PRIVATE -fvisibility=hidden)
+endif()
