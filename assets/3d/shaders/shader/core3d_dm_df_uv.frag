@@ -40,6 +40,10 @@ uint GetInstanceIndex()
 void UnlitBasic()
 {
     const uint instanceIdx = GetInstanceIndex();
+    
+    // Get UV from input (inUv is vec4, use .xy)
+    vec2 uv = inUv.xy;
+    
     CORE_RELAXEDP vec4 baseColor = GetBaseColorSample(inUv) * GetUnpackBaseColor(instanceIdx) * inColor;
     baseColor.a = clamp(baseColor.a, 0.0, 1.0);
     if ((CORE_MATERIAL_FLAGS & CORE_MATERIAL_ADDITIONAL_SHADER_DISCARD_BIT) ==
@@ -50,7 +54,7 @@ void UnlitBasic()
     }
 
     // 输出UV坐标 (RG通道)
-    outUV = vec4(inUv, 0.0, 1.0);
+    outUV = vec4(uv, 0.0, 1.0);
     
     // 原有输出
     outColor = GetPackColor(vec4(0.0, 0.0, 0.0, 1.0));
@@ -75,6 +79,9 @@ void PbrBasic()
 {
     const uint instanceIdx = GetInstanceIndex();
     
+    // Get UV from input (inUv is vec4)
+    vec2 uv = inUv.xy;
+    
     // 采样材质
     CORE_RELAXEDP vec4 baseColor = GetBaseColorSample(inUv, instanceIdx) * 
                                    GetUnpackBaseColor(instanceIdx) * inColor;
@@ -87,9 +94,8 @@ void PbrBasic()
         }
     }
     
-    // 法线
-    vec3 N = GetNormalSample(inUv, instanceIdx);
-    vec3 normNormal = normalize(GetFinalNormal(inNormal, inTangent, N));
+    // 法线 - 使用输入法线（简化版本）
+    vec3 normNormal = normalize(inNormal);
     
     // 材质参数
     CORE_RELAXEDP vec4 material = GetMaterialSample(inUv, instanceIdx) * 
@@ -106,7 +112,7 @@ void PbrBasic()
     emissive = emissive * baseColor.a;
     
     // 输出UV坐标 (RG通道存储UV, BA通道保留)
-    outUV = vec4(inUv, 0.0, 1.0);
+    outUV = vec4(uv, 0.0, 1.0);
     
     // 原有输出
     outColor = GetPackColor(vec4(emissive, 1.0));
