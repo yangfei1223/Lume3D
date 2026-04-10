@@ -2742,9 +2742,16 @@ RenderSystem::CameraRngsOutput RenderSystem::GetCameraRenderNodeGraphs(
         RenderCamera::CAMERA_FLAG_MSAA_BIT | RenderCamera::CAMERA_FLAG_CUSTOM_TARGETS_BIT;
     auto createNewRngs = [](auto& rngm, const auto& rnUtil, const auto& scene, const auto& obj, const auto& mvCams) {
         const auto descs = rnUtil->GetRenderNodeGraphDescs(scene, obj, 0, mvCams);
+        CORE_LOG_I("RenderSystem::createNewRngs: Creating camera RNG with %zu nodes, customRngFile=%s", 
+                   descs.camera.nodes.size(), obj.customRenderNodeGraphFile.c_str());
         CameraRngsOutput rngs;
         rngs.rngs.rngHandle = rngm.Create(
             IRenderNodeGraphManager::RenderNodeGraphUsageType::RENDER_NODE_GRAPH_STATIC, descs.camera, {}, scene.name);
+        if (rngs.rngs.rngHandle) {
+            CORE_LOG_I("RenderSystem::createNewRngs: Camera RNG created successfully");
+        } else {
+            CORE_LOG_E("RenderSystem::createNewRngs: FAILED to create camera RNG!");
+        }
         if (!descs.postProcess.nodes.empty()) {
             rngs.rngs.ppRngHandle =
                 rngm.Create(IRenderNodeGraphManager::RenderNodeGraphUsageType::RENDER_NODE_GRAPH_STATIC,
@@ -2843,7 +2850,14 @@ RenderHandleReference RenderSystem::GetSceneRenderNodeGraph(const RenderScene& r
     if (!renderScene.customRenderNodeGraphFile.empty()) {
         const bool reCreate = (renderProcessing_.sceneRngs.customRngFile != renderScene.customRenderNodeGraphFile);
         if (reCreate) {
-            renderProcessing_.sceneRngs.customRng = createNewRng(rngm, renderUtil_, renderScene);
+            // FIX: Use createNewCustomRng with the custom file path, not createNewRng
+            CORE_LOG_I("RenderSystem: Loading custom RNG: %s", renderScene.customRenderNodeGraphFile.c_str());
+            renderProcessing_.sceneRngs.customRng = createNewCustomRng(rngm, renderUtil_, renderScene, renderScene.customRenderNodeGraphFile);
+            if (renderProcessing_.sceneRngs.customRng) {
+                CORE_LOG_I("RenderSystem: Custom RNG loaded successfully");
+            } else {
+                CORE_LOG_E("RenderSystem: Failed to load custom RNG!");
+            }
         }
         handle = renderProcessing_.sceneRngs.customRng;
         renderProcessing_.sceneRngs.customRngFile = renderScene.customRenderNodeGraphFile;

@@ -16,6 +16,8 @@
 #include "util/render_util.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <fstream>
 
 #include <3d/intf_graphics_context.h>
 #include <3d/render/intf_render_data_store_default_camera.h>
@@ -65,9 +67,22 @@ constexpr bool ENABLE_WEATHER_INJECT { true };
 
 RenderNodeGraphDesc LoadRenderNodeGraph(IRenderNodeGraphLoader& rngLoader, const string_view rng)
 {
+    // Debug: write to file
+    std::ofstream dbg("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+    dbg << "[LoadRenderNodeGraph] Loading: " << rng.data() << std::endl;
+    dbg.close();
+    
     IRenderNodeGraphLoader::LoadResult lr = rngLoader.Load(rng);
     if (!lr.success) {
-        CORE_LOG_E("error loading render node graph: %s - error: %s", rng.data(), lr.error.data());
+        CORE_LOG_E("LoadRenderNodeGraph: FAILED to load: %s - error: %s", rng.data(), lr.error.data());
+        std::ofstream dbg2("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+        dbg2 << "[LoadRenderNodeGraph] FAILED: " << rng.data() << " - error: " << lr.error.data() << std::endl;
+        dbg2.close();
+    } else {
+        CORE_LOG_I("LoadRenderNodeGraph: Successfully loaded: %s (%zu nodes)", rng.data(), lr.desc.nodes.size());
+        std::ofstream dbg2("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+        dbg2 << "[LoadRenderNodeGraph] SUCCESS: " << rng.data() << " (" << lr.desc.nodes.size() << " nodes)" << std::endl;
+        dbg2.close();
     }
     return lr.desc;
 }
@@ -374,11 +389,33 @@ void RenderUtil::InitRenderNodeGraphs()
 
 RenderNodeGraphDesc RenderUtil::SelectBaseDesc(const RenderCamera& renderCamera) const
 {
+    std::ofstream dbg("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+    dbg << "[SelectBaseDesc] customRenderNodeGraphFile: " << renderCamera.customRenderNodeGraphFile.c_str() << std::endl;
+    dbg << "[SelectBaseDesc] renderPipelineType: " << (int)renderCamera.renderPipelineType << std::endl;
+    dbg.close();
+    
     if (!renderCamera.customRenderNodeGraphFile.empty()) {
         // custom render node graph file given which is patched
+        std::ofstream dbg2("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+        dbg2 << "[SelectBaseDesc] Entering custom RNG branch" << std::endl;
+        dbg2.close();
         IRenderNodeGraphLoader& rngl = context_.GetRenderNodeGraphManager().GetRenderNodeGraphLoader();
-        return LoadRenderNodeGraph(rngl, renderCamera.customRenderNodeGraphFile);
+        RenderNodeGraphDesc desc = LoadRenderNodeGraph(rngl, renderCamera.customRenderNodeGraphFile);
+        if (desc.nodes.empty()) {
+            std::ofstream dbg3("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+            dbg3 << "[SelectBaseDesc] FAILED - empty nodes" << std::endl;
+            dbg3.close();
+        } else {
+            std::ofstream dbg3("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+            dbg3 << "[SelectBaseDesc] SUCCESS - " << desc.nodes.size() << " nodes" << std::endl;
+            dbg3.close();
+        }
+        return desc;
     }
+    
+    std::ofstream dbg2("C:\\Users\\Fields\\Code\\LumeDemo\\rng_debug.txt", std::ios::app);
+    dbg2 << "[SelectBaseDesc] Using built-in RNG" << std::endl;
+    dbg2.close();
 
     if (renderCamera.flags & RenderCamera::CAMERA_FLAG_REFLECTION_BIT) {
         // check for msaa
